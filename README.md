@@ -1,6 +1,8 @@
-# firebase
+# firebase_rest
 
-A library for reading and writing data to a Firebase database
+A library for reading and writing data to a Firebase database.
+
+This library uses the firebase's REST api and works on both server and client.
 
 ## Usage
 
