@@ -29,7 +29,7 @@ abstract class _Reference {
   }
 
   Query _addQueryParameter(String key, String value) {
-    return new Query._(_url, auth: _auth).._query = (new Map.from(this is Query ? this._query : {"orderBy": JSON.encode(r"$key")})..[key] = value);
+    return new Query._(_url, auth: _auth).._query = (new Map.from(this is Query ? (this as Query)._query : {"orderBy": JSON.encode(r"$key")})..[key] = value);
   }
 
   /**
@@ -159,7 +159,7 @@ class Firebase extends _Reference {
 
   Uri get _fullUrl {
     var url = _url.resolve(".json");
-    if (_auth!=null) url = url.replace(queryParameters: {"auth": auth});
+    if (_auth!=null) url = url.replace(queryParameters: {"auth": _auth});
     return url;
   }
 
@@ -331,7 +331,7 @@ class _Event {
   final String data;
   final String type;
 
-  Event._(this.type, this.data);
+  _Event._(this.type, this.data);
 }
 
 class _EventSource {
@@ -358,7 +358,7 @@ class _EventSource {
     _response.stream.transform(UTF8.decoder).transform(new LineSplitter()).listen((String data) {
       if (data.isEmpty) {
         if (data!=null) {
-          _controller.add(new Event._(mType,mData));
+          _controller.add(new _Event._(mType,mData));
           mType = null;
           mData = null;
         }
@@ -378,5 +378,5 @@ class _EventSource {
     _client.close();
   }
 
-  Stream<Event> get stream => _controller.stream;
+  Stream<_Event> get stream => _controller.stream;
 }
