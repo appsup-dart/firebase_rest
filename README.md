@@ -8,12 +8,12 @@ This library uses the firebase's REST api and works on both server and client.
 
 A simple usage example:
 
-    import 'package:firebase/firebase.dart';
+    import 'package:firebase_rest/firebase_rest.dart';
 
-    main() {
-      var ref = new Firebase("https://publicdata-weather.firebaseio.com/sanfrancisco/currently/cloudCover");
+    main() async {
+      var ref = new Firebase(Uri.parse("https://publicdata-weather.firebaseio.com/sanfrancisco/currently/cloudCover"));
 
-      var snapshot = ref.get();
+      var snapshot = await ref.get();
 
       print(snapshot.val);
     }
