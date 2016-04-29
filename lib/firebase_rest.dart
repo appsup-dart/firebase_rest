@@ -89,7 +89,8 @@ abstract class _Reference {
   Query limitToFirst(int limit) => _addQueryParameter("limitToFirst", "$limit");
 
   /**
-   * Generates a new [Query] object limited to the last certain number of children.
+   * Generates a new [Query] object limited to the last certain number of
+   * children.
    */
   Query limitToLast(int limit) => _addQueryParameter("limitToLast", "$limit");
 }
@@ -134,9 +135,10 @@ class Firebase extends _Reference {
   /**
    * Constructs a new Firebase reference from a full Firebase URL.
    *
-   * If [auth] is defined, it will be used as authentication token in requests.
-   * Auth must be a "Firebase Database Secret", which can be generated
-   * by the Firebase Admin Console.
+   * The [auth] token is either the Firebase Database secret, or a JWT
+   * token signed with that secret. 
+   * It is comparable with the JavaScript function
+   * [Firebase.authWithCustomToken](https://www.firebase.com/docs/web/api/firebase/authwithcustomtoken.html)
    */
   Firebase(Uri url, {String auth})
       : super._(url.path.endsWith("/") ? url : Uri.parse("$url/"), auth);
@@ -147,7 +149,8 @@ class Firebase extends _Reference {
   Uri get url => _url;
 
   /**
-   * Returns a Firebase reference for the location at the specified relative path.
+   * Returns a Firebase reference for the location at the specified relative
+   * path.
    */
   Firebase child(String c) => new Firebase(_url.resolve(c), auth: _auth);
 
