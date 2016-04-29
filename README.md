@@ -1,8 +1,9 @@
-# firebase_rest
+# firebase_rest for Dart
 
-A library for reading and writing data to a Firebase database.
+A [Dart][dart] library for reading and writing data to a Firebase database.
 
-This library uses the firebase's REST api and works on both server and client.
+This library uses the Firebase's REST API
+and works on both server (`dart:io`) and client (`dart:html`).
 
 ## Usage
 
@@ -11,7 +12,8 @@ A simple usage example:
     import 'package:firebase_rest/firebase_rest.dart';
 
     main() async {
-      var ref = new Firebase(Uri.parse("https://publicdata-weather.firebaseio.com/sanfrancisco/currently/cloudCover"));
+      var uri = Uri.parse("https://publicdata-weather.firebaseio.com/sanfrancisco/currently/cloudCover");
+      var ref = new Firebase(uri);
 
       var snapshot = await ref.get();
 
@@ -23,3 +25,4 @@ A simple usage example:
 Please file feature requests and bugs at the [issue tracker][tracker].
 
 [tracker]: https://github.com/appsup-dart/firebase/issues
+[dart]: https://www.dartlang.org
