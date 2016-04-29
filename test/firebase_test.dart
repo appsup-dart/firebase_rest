@@ -10,11 +10,13 @@ void main() {
   group('Reading data', () {
     Firebase ref;
     setUp(() {
-      ref = new Firebase(Uri.parse('https://publicdata-weather.firebaseio.com/'));
+      ref =
+          new Firebase(Uri.parse('https://publicdata-weather.firebaseio.com/'));
     });
 
     test('Reading value', () async {
-      DataSnapshot snapshot = await ref.child('sanfrancisco/currently/cloudCover').get();
+      DataSnapshot snapshot =
+          await ref.child('sanfrancisco/currently/cloudCover').get();
       expect(snapshot.val, new isInstanceOf<num>());
     });
 
@@ -25,7 +27,8 @@ void main() {
 
     test('Order query', () async {
       return; //TODO: fallback when no index
-      DataSnapshot snapshot = await ref.orderByChild("offset").limitToFirst(4).get();
+      DataSnapshot snapshot =
+          await ref.orderByChild("offset").limitToFirst(4).get();
       expect(snapshot.val.keys.length, 4);
     });
   });
@@ -33,10 +36,11 @@ void main() {
   group('Writing data', () {
     Firebase ref;
     setUp(() {
-      ref = new Firebase(Uri.parse('https://n6ufdauwqsdfmp.firebaseio-demo.com/'));
+      ref = new Firebase(
+          Uri.parse('https://n6ufdauwqsdfmp.firebaseio-demo.com/'));
     });
 
-    test('Setting data',() async {
+    test('Setting data', () async {
       var fred = ref.child('fred/name');
 
       await fred.child('first').set('Fred');
@@ -55,29 +59,24 @@ void main() {
     });
 
     test('Push and update', () async {
-      var someone = await ref.push({
-        "first": "Fred",
-        "last": "Flintstone"
-      });
+      var someone = await ref.push({"first": "Fred", "last": "Flintstone"});
 
       var v = (await someone.get()).val;
 
       expect(v["first"], "Fred");
       expect(v["last"], "Flintstone");
 
-      await someone.update({ "first": 'Wilma' });
+      await someone.update({"first": 'Wilma'});
 
       v = (await someone.get()).val;
 
-      expect(v["first"],"Wilma");
-      expect(v["last"],"Flintstone");
+      expect(v["first"], "Wilma");
+      expect(v["last"], "Flintstone");
 
       await someone.remove();
       var s = (await someone.get());
 
       expect(s.exists, isFalse);
     });
-
-
   });
 }
