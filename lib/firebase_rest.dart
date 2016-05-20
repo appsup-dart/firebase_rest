@@ -125,6 +125,14 @@ class Query extends _Reference {
   }
 }
 
+
+class Event {
+  final String prevChild;
+  final DataSnapshot snapshot;
+
+  const Event(this.snapshot, this.prevChild);
+}
+
 /**
  * A Firebase reference represents a particular location in your database and
  * can be used for reading or writing data
@@ -236,6 +244,13 @@ class Firebase extends _Reference {
   static Uri _parentUri(Uri uri) => uri.resolve("..").normalizePath();
 
   static Uri _rootUri(Uri uri) => uri.resolve("/").normalizePath();
+
+
+
+  Stream<Event> get onValue =>
+      new _FirebaseSubscription(this).stream.map((s) => new Event(s,null));
+
+
 }
 
 /**

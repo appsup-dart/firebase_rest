@@ -79,4 +79,27 @@ void main() {
       expect(s.exists, isFalse);
     });
   });
+
+  group('Subscribe to data changes', () {
+    Firebase ref;
+    setUp(() {
+      ref = new Firebase(
+          Uri.parse('https://n6ufdauwqsdfmp.firebaseio-demo.com/'));
+    });
+
+    test('onValue', () async {
+      var fred = ref.child('fred/name');
+      await fred.child('first').set("Fred");
+
+      var stream = fred.onValue.asBroadcastStream();
+      var first = stream.first;
+      var second = stream.skip(1).first;
+
+      expect((await first).snapshot.val["first"], "Fred");
+      await fred.child('first').set("Fredy");
+      expect((await second).snapshot.val["first"], "Fredy");
+
+      await fred.set(null);
+    });
+  });
 }
