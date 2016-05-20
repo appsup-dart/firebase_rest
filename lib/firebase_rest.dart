@@ -175,7 +175,7 @@ class Firebase extends _Reference {
   /**
    * Returns the last token in a Firebase location.
    */
-  String get key => _url.pathSegments.isEmpty ? null : _url.pathSegments.last;
+  String get key => _url.pathSegments.isEmpty ? null : _url.pathSegments.lastWhere((s)=>s.isNotEmpty);
 
   Uri get _fullUrl {
     var url = _url.resolve(".json");

@@ -7,6 +7,17 @@ import 'package:firebase_rest/firebase_rest.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('Query properties', () {
+    Firebase ref;
+    setUp(() {
+      ref = new Firebase(
+          Uri.parse('https://publicdata-weather.firebaseio.com/sanfrancisco/currently/cloudCover'));
+    });
+
+    test('Key getter', () {
+      expect(ref.key,'cloudCover');
+    });
+  });
   group('Reading data', () {
     Firebase ref;
     setUp(() {
