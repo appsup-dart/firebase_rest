@@ -1,6 +1,6 @@
 name: firebase_rest
 description: Firebase library using Firebase's REST api
-version: 0.1.3
+version: 0.1.4
 author: Rik Bellens <rik.bellens@appsup.be>
 homepage: https://github.com/appsup-dart/firebase
 
