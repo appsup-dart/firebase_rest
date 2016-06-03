@@ -361,7 +361,7 @@ class _FirebaseSubscription {
 
   _FirebaseSubscription(Firebase ref) {
     _current = new DataSnapshot._(ref, null);
-    _source = new _EventSource(ref.url.toString());
+    _source = new _EventSource(ref.url.toString(), auth: ref._auth);
 
     StreamSubscription subscription;
 
@@ -400,13 +400,14 @@ class _Event {
 
 class _EventSource {
   final Uri url;
+  final String auth;
 
   http.StreamedResponse _response;
   http.Client _client;
 
   StreamController<_Event> _controller;
 
-  _EventSource(String url, {bool withCredentials: false})
+  _EventSource(String url, {bool withCredentials: false, this.auth})
       : this.url = Uri.parse(url) {
 
     _controller = new StreamController(
@@ -416,7 +417,8 @@ class _EventSource {
   }
 
   Future _open() async {
-    var request = new http.Request("GET", url.resolve(".json"));
+    var request = new http.Request("GET", url.resolve(".json")
+        .replace(queryParameters: auth!=null ? {"auth": auth} : const {}));
     request.headers["Accept"] = "text/event-stream";
     _client = new http.Client();
 
