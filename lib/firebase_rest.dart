@@ -7,6 +7,7 @@ library firebase;
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:collection/collection.dart';
 
 abstract class _Reference {
   final Uri _url;
@@ -250,10 +251,24 @@ class Firebase extends _Reference {
 
 
 
-  Stream<Event> get onValue =>
-      new _FirebaseSubscription(this).stream.map((s) => new Event(s,null));
+  Stream<Event> _onValue;
+  Stream<Event> get onValue => _onValue = _onValue ?? _createOnValueStream();
 
 
+  Stream<Event> _createOnValueStream() {
+
+    var controller = new StreamController();
+
+    _FirebaseSubscription s;
+    var stream = controller.stream.asBroadcastStream(
+        onListen: (subscription) {
+          s = new _FirebaseSubscription(this);
+          controller.addStream(s.stream.map((s)=>new Event(s,null)));
+        },
+        onCancel: (subscription) => s.close()
+    );
+    return new _Property.fromStream(stream);
+  }
 }
 
 /**
@@ -283,11 +298,23 @@ class DataSnapshot {
    */
   _Reference get ref => _ref;
 
+  _get(List<String> path) {
+    var o = _val;
+    for (var p in path) {
+      if (o is !Map||!o.containsKey(p)) return null;
+      o = o[p];
+    }
+    return o;
+  }
   DataSnapshot _put(String path, value) {
-    var val = JSON.decode(JSON.encode(_val));
-    var snapshot = new DataSnapshot._(_ref, val);
     var parts = path.split("/").sublist(1);
-    if (parts.last.isEmpty) parts = parts.sublist(0, parts.length - 1);
+    if (parts.isNotEmpty&&parts.last.isEmpty) parts = parts.sublist(0, parts.length - 1);
+    var oldValue = _get(parts);
+    if (_equals(value,oldValue))
+      return this;
+    if (parts.isEmpty) return new DataSnapshot._(_ref, value);
+    var val = JSON.decode(JSON.encode(_val)) ?? {};
+    var snapshot = new DataSnapshot._(_ref, val);
     for (var p in parts.sublist(0, parts.length - 1)) {
       val = (val as Map).putIfAbsent(p, () => {});
     }
@@ -295,11 +322,19 @@ class DataSnapshot {
     return snapshot;
   }
 
+  _equals(a,b) => a==b||(a is Map&&b is Map&&const MapEquality().equals(a,b));
+
   DataSnapshot _patch(String path, Map value) {
+    var parts = path.split("/").sublist(1);
+    if (parts.isNotEmpty&&parts.last.isEmpty) parts = parts.sublist(0, parts.length - 1);
+    var oldValue = _get(parts);
+    if (oldValue is Map) {
+      if (value.keys.every((k) => _equals(value[k], oldValue[k])))
+        return this;
+    }
+
     var val = JSON.decode(JSON.encode(_val));
     var snapshot = new DataSnapshot._(_ref, val);
-    var parts = path.split("/").sublist(1);
-    if (parts.last.isEmpty) parts = parts.sublist(0, parts.length - 1);
     for (var p in parts) {
       val = (val as Map).putIfAbsent(p, () => {});
     }
@@ -315,33 +350,41 @@ class _FirebaseSubscription {
 
   DataSnapshot _current;
 
-  StreamController<DataSnapshot> _controller = new StreamController.broadcast();
+  StreamController<DataSnapshot> _controller;
 
-  Stream<DataSnapshot> get stream => _controller.stream;
+  Stream<DataSnapshot> get stream => _controller.stream.distinct();
+
+  close() {
+    _controller.close();
+    _source.close();
+  }
 
   _FirebaseSubscription(Firebase ref) {
+    _current = new DataSnapshot._(ref, null);
     _source = new _EventSource(ref.url.toString());
 
-    _source.stream.listen((evt) {
-      switch (evt.type) {
-        case "put":
-          var data = JSON.decode(evt.data);
+    StreamSubscription subscription;
 
-          if (data["path"] == "/") {
-            _current = new DataSnapshot._(ref, data["data"]);
-          } else {
-            _current = _current._put(data["path"], data["data"]);
-          }
-          break;
-        case "patch":
-          var data = JSON.decode(evt.data);
-          _current = _current._patch(data["path"], data["data"]);
-          break;
-        default:
-          return;
-      }
+    _controller = new StreamController.broadcast(
+        onListen: () {
+          subscription = _source.stream.listen((evt) {
+            switch (evt.type) {
+              case "put":
+                var data = JSON.decode(evt.data);
+                _current = _current._put(data["path"], data["data"]);
+                break;
+              case "patch":
+                var data = JSON.decode(evt.data);
+                _current = _current._patch(data["path"], data["data"]);
+                break;
+              default:
+                return;
+            }
+            _controller.add(_current);
+        });
 
-      _controller.add(_current);
+    }, onCancel: () {
+      subscription.cancel();
     });
   }
 }
@@ -351,6 +394,8 @@ class _Event {
   final String type;
 
   _Event._(this.type, this.data);
+
+  toString() => "$type $data";
 }
 
 class _EventSource {
@@ -359,11 +404,15 @@ class _EventSource {
   http.StreamedResponse _response;
   http.Client _client;
 
-  StreamController<_Event> _controller = new StreamController.broadcast();
+  StreamController<_Event> _controller;
 
   _EventSource(String url, {bool withCredentials: false})
       : this.url = Uri.parse(url) {
-    _open();
+
+    _controller = new StreamController(
+        onListen: _open,
+        onCancel: close
+    );
   }
 
   Future _open() async {
@@ -374,10 +423,12 @@ class _EventSource {
     _response = await _client.send(request);
 
     var mData, mType;
-    _response.stream
+
+    await _response.stream
         .transform(UTF8.decoder)
         .transform(new LineSplitter())
-        .listen((String data) {
+        .forEach((String data) {
+      if (_controller.isClosed) return;
       if (data.isEmpty) {
         if (data != null) {
           _controller.add(new _Event._(mType, mData));
@@ -394,11 +445,74 @@ class _EventSource {
         throw new Exception("Invalid value $data");
       }
     });
+
+
+    if (!_isClosed) {
+      _open();
+    }
+
   }
 
+  bool _isClosed = false;
   void close() {
+    _isClosed = true;
     _client.close();
   }
 
   Stream<_Event> get stream => _controller.stream;
+}
+
+
+class _Property<T> extends Stream<T> {
+  StreamController _controller;
+  bool _hasCurrentValue = false;
+  T _currentValue;
+
+  _Property._(Stream<T> stream, bool hasInitialValue, [T initialValue]) {
+    _hasCurrentValue = hasInitialValue;
+    _currentValue = initialValue;
+    _controller = _createControllerForStream(stream);
+  }
+  /// Returns a new property where its current value is the latest value emitted
+  /// from [stream].
+  factory _Property.fromStream(Stream<T> stream) => new _Property._(stream, false);
+
+  StreamSubscription<T> listen(void onData(T value), {Function onError, void onDone(), bool cancelOnError}) {
+    var controller = new StreamController(sync: true);
+
+    if (_hasCurrentValue) {
+      controller.add(_currentValue);
+    }
+
+    controller.addStream(_controller.stream, cancelOnError: false).then((_) => controller.close());
+
+    return controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  }
+  StreamController _createControllerForStream(Stream stream) {
+    var input = stream;
+    StreamSubscription subscription;
+
+    void onListen() {
+      if (subscription == null) {
+        subscription = input.listen(
+            (value) {
+          _currentValue = value;
+          _hasCurrentValue = true;
+          _controller.add(value);
+        },
+            onError: _controller.addError,
+            onDone: () {
+              _controller.close();
+            });
+      }
+    }
+
+    void onCancel() {
+      subscription.cancel();
+      subscription = null;
+    }
+
+    return new StreamController.broadcast(onListen: onListen, onCancel: onCancel, sync: true);
+  }
+
 }

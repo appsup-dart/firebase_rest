@@ -5,6 +5,7 @@ library firebase.test;
 
 import 'package:firebase_rest/firebase_rest.dart';
 import 'package:test/test.dart';
+import 'dart:async';
 
 void main() {
   group('Query properties', () {
@@ -112,5 +113,47 @@ void main() {
 
       await fred.set(null);
     });
+
+    test('unsubscribe', () async {
+      var fred = ref.child('fred/name');
+      await fred.child('first').set("Fred");
+
+      var stream = fred.onValue;
+
+      var last1, last2;
+
+      var s1 = stream.listen((e)=>last1 = e.snapshot.val);
+      await new Future.delayed(new Duration(seconds: 1));
+      expect(last1, {'first': 'Fred'});
+
+      var s2 = stream.listen((e)=>last2 = e.snapshot.val);
+      await new Future.delayed(new Duration(seconds: 1));
+      expect(last2, {'first': 'Fred'});
+
+      await fred.child('first').set("Fredy");
+      await new Future.delayed(new Duration(seconds: 1));
+      expect(last1, {'first': 'Fredy'});
+      expect(last2, {'first': 'Fredy'});
+
+      await s1.cancel();
+      await new Future.delayed(new Duration(seconds: 1));
+      await s2.cancel();
+
+      last1 = last2 = null;
+      await new Future.delayed(new Duration(seconds: 1));
+      s1 = stream.listen((e)=>last1 = e.snapshot.val);
+      await new Future.delayed(new Duration(seconds: 1));
+      expect(last1, {'first': 'Fredy'});
+      expect(last2, null);
+
+      await fred.child('first').set("Fred");
+      await new Future.delayed(new Duration(seconds: 1));
+      expect(last1, {'first': 'Fred'});
+      expect(last2, null);
+
+
+
+    });
+
   });
 }
