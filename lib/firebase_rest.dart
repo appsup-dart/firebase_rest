@@ -350,41 +350,60 @@ class _FirebaseSubscription {
 
   DataSnapshot _current;
 
+  final Firebase ref;
   StreamController<DataSnapshot> _controller;
 
   Stream<DataSnapshot> get stream => _controller.stream.distinct();
+  StreamSubscription _subscription;
+  DateTime _lastEventTime;
 
   close() {
     _controller.close();
     _source.close();
   }
 
-  _FirebaseSubscription(Firebase ref) {
-    _current = new DataSnapshot._(ref, null);
+  _openEventSourceDelayed() {
+    new Future.delayed(new Duration(seconds: 5))
+        .then((_)=>_openEventSource());
+  }
+  _openEventSource() async {
     _source = new _EventSource(ref.url.toString(), auth: ref._auth);
 
-    StreamSubscription subscription;
+    _subscription = _source.stream.listen((evt) {
+      _lastEventTime = new DateTime.now();
+      new Future.delayed(new Duration(seconds: 45))
+          .then((_) {
+        if (new DateTime.now().difference(_lastEventTime)>new Duration(seconds: 35)) {
+          _subscription.cancel();
+          _openEventSource();
+        }
+      });
+      switch (evt.type) {
+        case "put":
+          var data = JSON.decode(evt.data);
+          _current = _current._put(data["path"], data["data"]);
+          break;
+        case "patch":
+          var data = JSON.decode(evt.data);
+          _current = _current._patch(data["path"], data["data"]);
+          break;
+        case "keep-alive":
+          return;
+        default:
+          return;
+      }
+      _controller.add(_current);
+    }, onError: (_)=>_openEventSourceDelayed());
+
+
+  }
+
+  _FirebaseSubscription(this.ref) {
+    _current = new DataSnapshot._(ref, null);
 
     _controller = new StreamController.broadcast(
-        onListen: () {
-          subscription = _source.stream.listen((evt) {
-            switch (evt.type) {
-              case "put":
-                var data = JSON.decode(evt.data);
-                _current = _current._put(data["path"], data["data"]);
-                break;
-              case "patch":
-                var data = JSON.decode(evt.data);
-                _current = _current._patch(data["path"], data["data"]);
-                break;
-              default:
-                return;
-            }
-            _controller.add(_current);
-        });
-
-    }, onCancel: () {
-      subscription.cancel();
+        onListen: _openEventSource, onCancel: () {
+      _subscription.cancel();
     });
   }
 }
@@ -422,7 +441,12 @@ class _EventSource {
     request.headers["Accept"] = "text/event-stream";
     _client = new http.Client();
 
-    _response = await _client.send(request);
+    try {
+      _response = await _client.send(request);
+    } catch (e) {
+      _controller.addError(e);
+      return;
+    }
 
     var mData, mType;
 
